@@ -9,47 +9,87 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @Environment(\.scenePhase) var scenePhase
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @ObservedObject var bluetoothController = BluetoothController()
+    @ObservedObject private var healthKitController = HealthKitController.shared
+    @AppStorage(Settings.saveToHealthKit) var saveToHealthKit: Bool = false
+    
+    private func onSuccessfulReading(_ bloodPressureReading: BloodPressureReading) {
+        if (saveToHealthKit) {
+            healthKitController.saveBloodPressureReading(reading: bloodPressureReading)
+        }
+    }
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        NavigationStack {
+            VStack {
+                BloodPressureReadingView(reading: bluetoothController.bloodPressureReading)
+                    .padding()
+                Spacer()
+                if (bluetoothController.bloodPressureReading.bloodPressureReadingProgress == .completed) {
+                    BloodPressureReadingChart(
+                        reading: bluetoothController.bloodPressureReading)
                 }
-                .onDelete(perform: deleteItems)
+                HStack {
+                    if bluetoothController.connectedPeripheral != nil {
+                        Button("Disconnect") {
+                            bluetoothController.disconnectPeripheral()
+                        }
+                    }
+                    else {
+                        Button("Connect to QardioArm") {
+                            bluetoothController.scanForPeripherals()
+                        }
+                    }
+                    Spacer()
+                    if bluetoothController.connectedPeripheral != nil {
+                            Button("Get Reading") {
+                                bluetoothController.startReading(onSuccessfulReading: onSuccessfulReading)
+                            }
+                    }
+                } .padding()
             }
+            .navigationTitle("Blood Pressure")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                ToolbarItem(placement: .topBarLeading) {
+                    DeviceConnectionMinifiedView(
+                        deviceName: bluetoothController.connectedPeripheral?.name ?? "",
+                        isConnected: bluetoothController.connectedPeripheral != nil,
+                        batteryLevel: bluetoothController.batteryLevel
+                    )
                 }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                      SettingsView()
+                    } label: {
+                        Image(systemName: "gearshape")
                     }
+                    
                 }
             }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if newPhase == .active {
+                    print("Active")
+                    UIApplication.shared.isIdleTimerDisabled = true
+                    bluetoothController.scanForPeripherals()
+                } else if newPhase == .inactive {
+                    print("Inactive")
+                } else if newPhase == .background {
+                    print("Disappeared")
+                    UIApplication.shared.isIdleTimerDisabled = false
+                    bluetoothController.disconnectPeripheral()
+                }
+            }
+            .onAppear() {
+                UIApplication.shared.isIdleTimerDisabled = true
+                bluetoothController.scanForPeripherals()
+            }
+            .onDisappear() {
+                print("Disappeared")
+                UIApplication.shared.isIdleTimerDisabled = false
+                bluetoothController.disconnectPeripheral()
             }
         }
     }
@@ -57,5 +97,4 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
