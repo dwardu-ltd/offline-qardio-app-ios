@@ -42,6 +42,19 @@ struct HealthAppAuthorisationStatusView: View {
                         .foregroundColor(.red)
                 }
             }
+            Spacer()
+            HStack {
+                if !healthKitController.healthDataAuthorized {
+                    Button(action: {
+                        Task() {
+                            try await healthKitController.requestAuthorization()
+                            _ = healthKitController.isAuthorized()
+                        }
+                    }) {
+                        Text("Allow")
+                    }
+                }
+            }
         }
     }
 }

@@ -49,6 +49,7 @@ struct HealthKitStatusView: View {
                 Button(action: {
                     Task() {
                         try await healthKitController.requestAuthorization()
+                        _ = healthKitController.isAuthorized()
                     }
                 }) {
                     Text("Authenticate HealthKit")
@@ -58,7 +59,7 @@ struct HealthKitStatusView: View {
             } else {
                 if (reading.bloodPressureReadingProgress == .completed) {
                     Button(action: {
-                        healthKitController.saveBloodPressureReading(reading: reading)
+                        _ = healthKitController.saveBloodPressureReading(reading: reading)
                     })
                     {
                         if(!reading.syncedToHealth) {

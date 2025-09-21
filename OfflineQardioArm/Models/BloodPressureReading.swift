@@ -23,4 +23,5 @@ enum BloodPressureReadingProgress {
     case completed
     case notStarted
     case failed
+    case savedToHealthKit
 }

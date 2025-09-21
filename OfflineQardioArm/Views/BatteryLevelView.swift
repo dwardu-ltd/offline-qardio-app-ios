@@ -32,6 +32,7 @@ struct BatteryLevelView: View {
             Image(systemName:"battery.0percent")
                 .foregroundStyle(.red)
                 .rotationEffect(.degrees(batteryRotation))
+                .symbolEffect(.pulse)
         }
     }
 }

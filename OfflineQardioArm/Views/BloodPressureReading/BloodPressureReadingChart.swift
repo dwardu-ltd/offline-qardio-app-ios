@@ -12,7 +12,7 @@ import Charts
 struct BloodPressureReadingChart: View {
     
     let reading: BloodPressureReading
-    
+    let diastolicMarking: Int = 42
     var body: some View {
         //        This will draw a chart based on the reading, it will plot it on a graph with systolic and diastolic values on the y-axis and the date of the reading on the x-axis.
         VStack {
@@ -25,7 +25,7 @@ struct BloodPressureReadingChart: View {
                 .zIndex(50)
                 
                 PointMark(
-                    x: .value("Diastolic", 45),
+                    x: .value("Diastolic", diastolicMarking),
                     y: .value("Systolic", 65))
                 .annotation(position: .overlay, alignment: .leading) {
                     Text("Low")
@@ -52,7 +52,7 @@ struct BloodPressureReadingChart: View {
                 .foregroundStyle(Color.black)
                 .zIndex(35)
                 PointMark(
-                    x: .value("Diastolic", 45),
+                    x: .value("Diastolic", diastolicMarking),
                     y: .value("Systolic", 105))
                 .annotation(position: .overlay, alignment: .leading) {
                     Text("Normal")
@@ -78,7 +78,7 @@ struct BloodPressureReadingChart: View {
                 .foregroundStyle(Color.black)
                 .zIndex(25)
                 PointMark(
-                    x: .value("Diastolic", 45),
+                    x: .value("Diastolic", diastolicMarking),
                     y: .value("Systolic", 130))
                 .annotation(position: .overlay, alignment: .leading) {
                     Text("Prehypertension")
@@ -104,7 +104,7 @@ struct BloodPressureReadingChart: View {
                 .foregroundStyle(Color.black)
                 .zIndex(15)
                 PointMark(
-                    x: .value("Diastolic", 45),
+                    x: .value("Diastolic", diastolicMarking),
                     y: .value("Systolic", 150))
                 .annotation(position: .overlay, alignment: .leading) {
                     Text("High: Stage 1 Hypertension")
@@ -130,7 +130,7 @@ struct BloodPressureReadingChart: View {
                 .foregroundStyle(Color.black)
                 .zIndex(5)
                 PointMark(
-                    x: .value("Diastolic", 45),
+                    x: .value("Diastolic", diastolicMarking),
                     y: .value("Systolic", 170))
                 .annotation(position: .overlay, alignment: .leading) {
                     Text("High: Stage 2 Hypertension")

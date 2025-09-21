@@ -23,7 +23,7 @@ struct BloodPressureReadingView: View {
                 measurementUnit: "mmHg"
             ).padding(.horizontal, 20)
             BloodPressureReadingRowView(
-                measurementName: "Atrial Pressure",
+                measurementName: "Mean Arterial Pressure",
                 value: "\(reading.atrialPressure)",
                 measurementUnit: "mmHg"
             ).padding(.horizontal, 20)

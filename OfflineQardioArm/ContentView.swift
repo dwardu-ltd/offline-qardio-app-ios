@@ -9,66 +9,18 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @AppStorage("tutorialCompleted") var tutorialCompleted = false
     @Environment(\.scenePhase) var scenePhase
     @Environment(\.modelContext) private var modelContext
-    @ObservedObject var bluetoothController = BluetoothController()
-    @ObservedObject private var healthKitController = HealthKitController.shared
+    @ObservedObject var bluetoothController: BluetoothController
+    @ObservedObject var healthKitController: HealthKitController
     @AppStorage(Settings.saveToHealthKit) var saveToHealthKit: Bool = false
-    
-    private func onSuccessfulReading(_ bloodPressureReading: BloodPressureReading) {
-        if (saveToHealthKit) {
-            healthKitController.saveBloodPressureReading(reading: bloodPressureReading)
-        }
-    }
-    
+
     var body: some View {
-        NavigationStack {
-            VStack {
-                BloodPressureReadingView(reading: bluetoothController.bloodPressureReading)
-                    .padding()
-                Spacer()
-                if (bluetoothController.bloodPressureReading.bloodPressureReadingProgress == .completed) {
-                    BloodPressureReadingChart(
-                        reading: bluetoothController.bloodPressureReading)
-                }
-                HStack {
-                    if bluetoothController.connectedPeripheral != nil {
-                        Button("Disconnect") {
-                            bluetoothController.disconnectPeripheral()
-                        }
-                    }
-                    else {
-                        Button("Connect to QardioArm") {
-                            bluetoothController.scanForPeripherals()
-                        }
-                    }
-                    Spacer()
-                    if bluetoothController.connectedPeripheral != nil {
-                            Button("Get Reading") {
-                                bluetoothController.startReading(onSuccessfulReading: onSuccessfulReading)
-                            }
-                    }
-                } .padding()
-            }
-            .navigationTitle("Blood Pressure")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    DeviceConnectionMinifiedView(
-                        deviceName: bluetoothController.connectedPeripheral?.name ?? "",
-                        isConnected: bluetoothController.connectedPeripheral != nil,
-                        batteryLevel: bluetoothController.batteryLevel
-                    )
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                      SettingsView()
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    
-                }
-            }
+        if (!tutorialCompleted) {
+            TutorialView()
+        } else {
+            BloodPressureView(bluetoothController: self.bluetoothController, healthKitController: self.healthKitController)
             .onChange(of: scenePhase) { oldPhase, newPhase in
                 if newPhase == .active {
                     print("Active")
@@ -91,10 +43,18 @@ struct ContentView: View {
                 UIApplication.shared.isIdleTimerDisabled = false
                 bluetoothController.disconnectPeripheral()
             }
+
         }
     }
 }
 
 #Preview {
-    ContentView()
+//    let bluetoothController: BluetoothController = BluetoothController()
+    let healthKitController: HealthKitController = HealthKitController()
+//    ContentView(tutorialCompleted: true, bluetoothController: bluetoothController, healthKitController: healthKitController)
+//    ContentView(tutorialCompleted: false, bluetoothController: bluetoothController, healthKitController: healthKitController)
+    let bloodPressureReading = BloodPressureReading(systolic: 115, diastolic: 60, atrialPressure: 78, pulseRate: 65, bloodPressureReadingProgress: .savedToHealthKit)
+    var bluetoothControllerFakeData: BluetoothController = BluetoothController.controllerWithSampleData(reading: bloodPressureReading, batteryLevel: 78)
+    
+    ContentView(tutorialCompleted: true, bluetoothController: bluetoothControllerFakeData, healthKitController: healthKitController)
 }

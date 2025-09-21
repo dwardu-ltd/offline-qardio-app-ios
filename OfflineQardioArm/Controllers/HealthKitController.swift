@@ -16,7 +16,7 @@ class HealthKitController : ObservableObject {
     
     @Published var healthDataAvailable: Bool = HKHealthStore.isHealthDataAvailable()
     @Published var healthDataAuthorized: Bool = false
-    
+    @Published var guestReading: Bool = false
     static let allTypes: Set = [
         HKQuantityType(.bloodPressureSystolic),
         HKQuantityType(.bloodPressureDiastolic),
@@ -28,6 +28,15 @@ class HealthKitController : ObservableObject {
     }
     
     func saveBloodPressureReading(reading: BloodPressureReading) -> Bool {
+        if (self.guestReading) {
+         print("Guest Reading, Ignoring...")
+            self.guestReading = false
+            return true
+        }
+        if (reading.bloodPressureReadingProgress != .completed) {
+            print("Reading Incomplete")
+            return false
+        }
         // Save the blood pressure reading to HealthKit.
         guard healthDataAuthorized else {
             print("Health data not authorized")

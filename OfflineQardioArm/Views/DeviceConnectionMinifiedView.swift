@@ -20,10 +20,10 @@ struct DeviceConnectionMinifiedView: View {
                 .foregroundColor(isConnected ? .green : .red)
                 .font(.body)
             
-            
             Text(isConnected ? deviceName : "No Device")
                 .font(.body)
                 .foregroundColor(.primary)
+                .labelStyle(.toolbar)
             if (isConnected) {
                 BatteryLevelView(batteryLevel: batteryLevel)
             }

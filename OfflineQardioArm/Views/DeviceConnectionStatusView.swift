@@ -31,10 +31,6 @@ struct DeviceConnectionStatusView: View {
                 .font(.subheadline)
                 .foregroundColor(isConnected ? .green : .red)
         }
-        .padding()
-        .background(Color(UIColor.systemBackground))
-        .cornerRadius(8)
-        .shadow(radius: 5)
     }
 }
 

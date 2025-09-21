@@ -6,9 +6,16 @@
 //
 
 import CoreBluetooth
+import os
+import Foundation
 
 class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     
+    static let shared: BluetoothController = BluetoothController()
+    
+    var simulateConnected: Bool = false
+    
+    let logger = Logger()
     
     @Published var isBluetoothEnabled: Bool = false
     @Published var batteryLevel: UInt8 = 0 // Default value for battery level
@@ -33,35 +40,48 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
         
     }
     
+    func getDeviceName() -> String {
+        if simulateConnected {
+            return "QardioArm"
+        } else {
+            return self.connectedPeripheral?.name ?? ""
+        }
+    }
+    
+    /*
+     Check if the device is successfully connected. This also includes querying the characteristics.
+     */
+    func isDeviceConnected() -> Bool {
+        return (self.connectedPeripheral != nil && self.characteristic != nil) || simulateConnected
+    }
+    
     /*
         Bluetooth Peripheral Related
      */
-    
     func peripheral(
         _ peripheral: CBPeripheral,
         didDiscoverServices error: (any Error)?
     ) {
         if let error = error {
-            print("Error discovering services: \(error.localizedDescription)")
+            logger.error("Error discovering services: \(error.localizedDescription)")
             return
         }
         
         guard let services = peripheral.services else { return }
         
         for service in services {
-            print("Discovered service: \(service.uuid)")
+            logger.info("Discovered service: \(service.uuid)")
             switch service.uuid {
             case CBUUID(string: QardioArmBluetoothDevice.bloodPressureServiceString): // Blood Pressure Service UUID
-                print("Blood Pressure Service found")
+                logger.info("Blood Pressure Service found")
                 // Discover characteristics for Blood Pressure Service
-                
                 peripheral.discoverCharacteristics(nil, for: service) // Discover all characteristics
             case CBUUID(string: QardioArmBluetoothDevice.batteryServiceString): // Battery Service UUID
                 print("Battery Service found")
                 // Discover characteristics for Battery Service
                 peripheral.discoverCharacteristics(nil, for: service) // Discover all characteristics
             default:
-                print("Unknown service UUID: \(service.uuid)")
+                logger.warning("Unknown service UUID: \(service.uuid)")
                 // You can handle other services here if needed
                 // peripheral.discoverCharacteristics(nil, for: service)
                 break
@@ -75,17 +95,17 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     )
     {
         if let error = error {
-            print("Error updating value for characteristic \(characteristic.uuid): \(error.localizedDescription)")
+            logger.error("Error updating value for characteristic \(characteristic.uuid): \(error.localizedDescription)")
             return
         }
         
         guard let data = characteristic.value else { return }
         
         // Handle the received data based on the characteristic UUID
-       
+        
         switch characteristic.uuid {
         case CBUUID(string: QardioArmBluetoothDevice.bloodPressureMeasurementCharacteristicString): // Blood Pressure Measurement Characteristic UUID
-            print("Received Blood Pressure Measurement data: \(data)")
+            logger.trace("Received Blood Pressure Measurement data: \(data)")
             // Parse the data as needed, e.g., convert to BloodPressureReading model
             // For example, let's assume the data is in a specific format:
             if data.count >= 6 {
@@ -119,7 +139,8 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
                         bloodPressureReadingProgress = .failed
                     }
                     if (systolic > 200) {
-                        print("Errored")
+                        logger.error("Errored because the systolic rate is above 200mmHg \(systolic)")
+                        bloodPressureReadingProgress = .failed
                     }
                     
                     if (data.count > 9) {
@@ -134,34 +155,40 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
                 self.bloodPressureReading.diastolic = diastolic
                 self.bloodPressureReading.atrialPressure = atrialPressure
                 self.bloodPressureReading.pulseRate = pulseRate
-                self.bloodPressureReading.bloodPressureReadingProgress = bloodPressureReadingProgress
                 
-                    print("Flags: \(flags)")
-                    print("Blood Pressure Reading: Systolic: \(systolic) mmHg, Diastolic: \(diastolic) mmHg, Atrial Pressure: \(atrialPressure) mmHg, Pulse Rate: \(pulseRate) bpm")
-                if (bloodPressureReadingProgress == .completed) {
+                if (self.bloodPressureReading.bloodPressureReadingProgress != .completed && self.bloodPressureReading.bloodPressureReadingProgress != .savedToHealthKit){
+                    self.bloodPressureReading.bloodPressureReadingProgress = bloodPressureReadingProgress
+                }
+                
+                logger.debug("Flags: \(flags)")
+                logger.trace("Blood Pressure Reading: Systolic: \(systolic) mmHg, Diastolic: \(diastolic) mmHg, Atrial Pressure: \(atrialPressure) mmHg, Pulse Rate: \(pulseRate) bpm")
+                
+                if (self.bloodPressureReading.bloodPressureReadingProgress == .completed) {
                     guard let onSuccessfulReading = self.onSuccessfulReading else {
                         return
                     }
                     onSuccessfulReading(self.bloodPressureReading)
+                    self.bloodPressureReading.bloodPressureReadingProgress = .savedToHealthKit
                     
                 }
             } else {
-                print("Received data is not in the expected format.")
+                logger.error("Received data is not in the expected format.")
             }
         case CBUUID(string: QardioArmBluetoothDevice.batteryServiceLevelCharacteristicString): // Battery Level Characteristic UUID
-            print("Received Battery Level data: \(data)")
+            logger.debug("Received Battery Level data: \(data)")
             // Parse the battery level data
             if let batteryLevel = data.first {
                 print("Battery Level: \(batteryLevel)%")
                 // Update the battery level in the QardioArmBluetoothDevice model
                 self.batteryLevel = batteryLevel
             } else {
-                print("Battery Level data is not available.")
+                logger.debug("Battery Level data is not available.")
             }
         default:
-            print("Received data for unknown characteristic: \(characteristic.uuid)")
+            logger.warning("Received data for unknown characteristic: \(characteristic.uuid)")
         }
     }
+    
     func peripheral(
         _ peripheral: CBPeripheral,
         didWriteValueFor characteristic: CBCharacteristic,
@@ -169,18 +196,18 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     )
     {
         if let error = error {
-            print("Error writing value for characteristic \(characteristic.uuid): \(error.localizedDescription)")
+            logger.error("Error writing value for characteristic \(characteristic.uuid): \(error.localizedDescription)")
         } else {
-            print("Successfully wrote value for characteristic: \(characteristic.uuid)")
+            logger.info("Successfully wrote value for characteristic: \(characteristic.uuid)")
             // Optionally, you can read the value back if needed
 //            peripheral.readValue(for: self.readingCharacteristic!)
             // print all of characteristic
             
-            print("Characteristic UUID: \(characteristic.uuid)")
+            logger.info("Characteristic UUID: \(characteristic.uuid)")
             if let value = characteristic.value {
-                print("Characteristic Value: \(value.map { String(format: "%02X", $0) }.joined())")
+                logger.info("Characteristic Value: \(value.map { String(format: "%02X", $0) }.joined())")
             } else {
-                print("Characteristic Value is nil")
+                logger.warning("Characteristic Value is nil")
             }
             
             
@@ -191,27 +218,27 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
         didDiscoverCharacteristicsFor service: CBService,
         error: (any Error)?
     ) {
-        print("Discovered characteristics for service: \(service.uuid)")
+        logger.debug("Discovered characteristics for service: \(service.uuid)")
         if let error = error {
-            print("Error discovering characteristics: \(error.localizedDescription)")
+            logger.error("Error discovering characteristics: \(error.localizedDescription)")
             return
         }
         
         guard let characteristics = service.characteristics else { return }
         for characteristic in characteristics {
-            print("Discovered characteristic: \(characteristic.uuid)")
+            logger.debug("Discovered characteristic: \(characteristic.uuid)")
             switch characteristic.uuid {
             case QardioArmBluetoothDevice.bloodPressureFeatureCharacteristicId: // Blood Pressure Measurement Characteristic UUID
-                print("Blood Pressure Measurement Characteristic found")
+                logger.debug("Blood Pressure Measurement Characteristic found")
                 peripheral.setNotifyValue(true, for: characteristic) // Subscribe to notifications
-                print("Subscribed to Blood Pressure Measurement Characteristic")
+                logger.debug("Subscribed to Blood Pressure Measurement Characteristic")
                 self.characteristic = characteristic // Store the characteristic for later use
             case CBUUID(string: QardioArmBluetoothDevice.bloodPressureMeasurementCharacteristicString): // Blood Pressure Service UUID
-                print("Pressure reading Characteristic found")
+                logger.debug("Pressure reading Characteristic found")
                 self.readingCharacteristic = characteristic
                 peripheral.setNotifyValue(true, for: characteristic) // Subscribe to notifications
             case CBUUID(string: QardioArmBluetoothDevice.batteryServiceLevelCharacteristicString): // Battery Level Characteristic UUID
-                print("Battery Level Characteristic found")
+                logger.debug("Battery Level Characteristic found")
                 peripheral.setNotifyValue(true, for: characteristic) // Subscribe to notifications
             default:
                 break
@@ -224,9 +251,9 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
         error: (any Error)?
     ) {
         if let error = error {
-            print("Error updating notification state for characteristic \(characteristic.uuid): \(error.localizedDescription)")
+            logger.error("Error updating notification state for characteristic \(characteristic.uuid): \(error.localizedDescription)")
         } else {
-            print("Notification state updated for characteristic: \(characteristic.uuid), isNotifying: \(characteristic.isNotifying)")
+            logger.debug("Notification state updated for characteristic: \(characteristic.uuid), isNotifying: \(characteristic.isNotifying)")
         }
     }
      
@@ -255,16 +282,17 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     
     
     func startReading(onSuccessfulReading: ((BloodPressureReading) -> Void)?) {
-        if connectedPeripheral != nil {
-            print("Reading from connected peripheral: \(connectedPeripheral?.name ?? "Unknown")")
-            print("Peripheral Identifier: \(connectedPeripheral?.identifier.uuidString ?? "Unknown")")
-            print("Is Connected? \(connectedPeripheral?.state == .connected ? "Yes" : "No")")
+        if self.isDeviceConnected() {
+            logger.debug("Reading from connected peripheral: \(self.connectedPeripheral?.name ?? "Unknown")")
+            logger.trace("Peripheral Identifier: \(self.connectedPeripheral?.identifier.uuidString ?? "Unknown")")
+            logger.trace("Is Connected? \(self.connectedPeripheral?.state == .connected ? "Yes" : "No")")
             
-            print("Writing value to characteristic: \(String(describing: characteristic?.uuid))")
+            logger.trace("Writing value to characteristic: \(String(describing: self.characteristic?.uuid))")
             self.onSuccessfulReading = onSuccessfulReading
+            bloodPressureReading.bloodPressureReadingProgress = .started
             connectedPeripheral?.writeValue(hexToData(QardioArmBluetoothDevice.bloodPressureFeatureStartReadingValue, bigEndian: false), for: self.characteristic!, type: .withResponse)
         } else {
-            print("No connected peripheral to read from.")
+            logger.warning("No connected peripheral to read from.")
         }
     }
     
@@ -278,10 +306,10 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     func disconnectPeripheral() {
         if let peripheral = connectedPeripheral {
             centralManager.cancelPeripheralConnection(peripheral)
-            print("Disconnected from peripheral: \(peripheral.name ?? "Unknown")")
+            logger.info("Disconnected from peripheral: \(peripheral.name ?? "Unknown")")
             connectedPeripheral = nil
         } else {
-            print("No connected peripheral to disconnect from.")
+            logger.debug("No connected peripheral to disconnect from.")
         }
     }
     
@@ -294,16 +322,16 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
                         didConnect peripheral: CBPeripheral) {
         self.connectedPeripheral = peripheral
         self.connectedPeripheral?.delegate = self
-        print("Connected to peripheral: \(peripheral.name ?? "Unknown")")
+        logger.info("Connected to peripheral: \(peripheral.name ?? "Unknown")")
         peripheral.delegate = self
         peripheral.discoverServices([CBUUID(string: QardioArmBluetoothDevice.bloodPressureServiceString), CBUUID(string: QardioArmBluetoothDevice.batteryServiceString)]) // Blood Pressure Service UUID
     }
     
     func centralManager(_ didFailToConnect: CBCentralManager, peripheral: CBPeripheral, error: (any Error)?) {
         if let error = error {
-            print("Failed to connect to peripheral: \(error.localizedDescription)")
+            logger.error("Failed to connect to peripheral: \(error.localizedDescription)")
         } else {
-            print("Failed to connect to peripheral: \(peripheral.name ?? "Unknown")")
+            logger.error("Failed to connect to peripheral: \(peripheral.name ?? "Unknown")")
         }
         self.connectedPeripheral = nil
     }
@@ -314,20 +342,19 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
         for peripheral: CBPeripheral
     ) {
         
-        print("Connection event occurred: \(event) for peripheral: \(peripheral.name ?? "Unknown")")
+        logger.info("Connection event occurred: \(event.rawValue) for peripheral: \(peripheral.name ?? "Unknown")")
     }
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         self.connectedPeripheral = peripheral
         self.connectedPeripheral?.delegate = self
-        print("Peripheral discovered:")
         // Print peripheral name and identifier
         
-        print("Peripheral Name : \(peripheral.name ?? "Unknown Peripheral")")
-        print("Peripheral Identifier : \(peripheral.identifier)")
+        logger.debug("Peripheral Name : \(peripheral.name ?? "Unknown Peripheral")")
+        logger.debug("Peripheral Identifier : \(peripheral.identifier)")
         // Connect to the peripheral
         centralManager?.connect(peripheral, options: nil)
-        print("Connecting to peripheral: \(peripheral.name ?? "Unknown")")
+        logger.debug("Connecting to peripheral: \(peripheral.name ?? "Unknown")")
         // Stop scanning after discovering a peripheral
         // This is optional, you can keep scanning if you want to discover more peripherals
         // If you want to stop scanning after connecting to one peripheral, uncomment the next line
@@ -371,6 +398,17 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     }
 }
 
-
-
-
+extension BluetoothController {
+    
+    static func controllerWithSampleData(reading: BloodPressureReading, batteryLevel: UInt8) -> BluetoothController {
+        
+        let bloodPressureReadingExample = BloodPressureReading(systolic: 120, diastolic: 60, atrialPressure: 80, pulseRate: 65, bloodPressureReadingProgress: .savedToHealthKit)
+        
+        let bluetoothController = BluetoothController()
+        bluetoothController.simulateConnected = true
+        bluetoothController.batteryLevel = batteryLevel
+        bluetoothController.bloodPressureReading = reading
+        
+        return bluetoothController
+    }
+}
