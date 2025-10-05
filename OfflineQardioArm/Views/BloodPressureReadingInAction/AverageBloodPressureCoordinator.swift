@@ -7,16 +7,28 @@
 
 import Foundation
 
-class AverageBloodPressureCoordinator : ObservableObject {
+class AverageBloodPressureCoordinator : NSObject, ObservableObject {
     
-    static let shared: AverageBloodPressureCoordinator = AverageBloodPressureCoordinator()
+    static let shared: AverageBloodPressureCoordinator = AverageBloodPressureCoordinator(maximumReadings: 3)
     
     var maximumReadings: Int8
-    @Published var bloodPressureReadings: [BloodPressureReading] = []
+    @Published var bloodPressureReadings: [BloodPressureReading]
     
+    var hasReadings: Bool {
+        return !self.bloodPressureReadings.isEmpty
+    }
     
-    init(maximumReadings: Int8 = 3) {
+    var isCompleted: Bool {
+        return self.bloodPressureReadings.count == self.maximumReadings
+    }
+    
+    init(maximumReadings: Int8 = 3, bloodPressureReadings: [BloodPressureReading] = []) {
         self.maximumReadings = maximumReadings
+        self.bloodPressureReadings = bloodPressureReadings
+    }
+    
+    func reset() {
+        self.bloodPressureReadings = []
     }
     
     func averageBloodPressureReadings() -> BloodPressureReading {
@@ -38,4 +50,22 @@ class AverageBloodPressureCoordinator : ObservableObject {
         return self.bloodPressureReadings.count == self.maximumReadings
     }
     
+}
+
+
+extension AverageBloodPressureCoordinator {
+    
+    static func controllerWithSampleData(currentReadings: Int8, maximumReadings: Int8) -> AverageBloodPressureCoordinator {
+        var bloodPressureReadings: [BloodPressureReading] = []
+        let examplesCount = BloodPressureReading.examples.count
+        for _ in 0..<currentReadings {
+          // Get a random item from the examples of BloodPressureReading
+            let randomIndex = Int.random(in: 0..<examplesCount)
+            bloodPressureReadings.append(BloodPressureReading.examples[randomIndex])
+        }
+        
+        let averageBloodPressureCoordinator = AverageBloodPressureCoordinator(maximumReadings: maximumReadings, bloodPressureReadings:bloodPressureReadings)
+        
+        return averageBloodPressureCoordinator
+    }
 }

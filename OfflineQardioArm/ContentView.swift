@@ -49,10 +49,7 @@ struct ContentView: View {
 }
 
 #Preview {
-//    let bluetoothController: BluetoothController = BluetoothController()
     let healthKitController: HealthKitController = HealthKitController()
-//    ContentView(tutorialCompleted: true, bluetoothController: bluetoothController, healthKitController: healthKitController)
-//    ContentView(tutorialCompleted: false, bluetoothController: bluetoothController, healthKitController: healthKitController)
     let bloodPressureReading = BloodPressureReading(systolic: 115, diastolic: 60, atrialPressure: 78, pulseRate: 65, bloodPressureReadingProgress: .savedToHealthKit)
     var bluetoothControllerFakeData: BluetoothController = BluetoothController.controllerWithSampleData(reading: bloodPressureReading, batteryLevel: 78)
     

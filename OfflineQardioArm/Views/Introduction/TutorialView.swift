@@ -8,12 +8,14 @@ struct TutorialView : View {
     @State private var showSkipButton = true
     @State private var showDoneButton = false
     
+    
+    
     var body: some View {
         NavigationStack {
             VStack {
                 TabView(selection: $currentPage) {
                     
-                    TutorialPage(title: "Welcome to Oardio", description: "Use your Qardio Blood Pressure Monitor without their servers.", imageName: "fuelStation").tag(0)
+                    TutorialPage(title: "Welcome to Oardio", description: "Use your QardioARM Blood Pressure Monitor without their servers.", imageName: "fuelStation").tag(0)
                     SetUpHealthKitView().tag(1)
                     TutorialPage(title: "App Walkthrough", description: "This is your blood pressure reading app. Connect your QardioArm Blood Pressure Monitor by using the connect on the bottom left if it doesnt show up.", imageName: "ConnectToQardio").tag(2)
                     TutorialPage(title: "App Walkthrough", description: "Use the Guest Mode toggle to take a reading without saving it to Apple Health.", imageName: "GuestMode").tag(3)

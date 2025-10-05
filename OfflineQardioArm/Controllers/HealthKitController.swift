@@ -35,6 +35,7 @@ class HealthKitController : ObservableObject {
         }
         if (reading.bloodPressureReadingProgress != .completed) {
             print("Reading Incomplete")
+            print("Reading Progress: \(reading.bloodPressureReadingProgress)")
             return false
         }
         // Save the blood pressure reading to HealthKit.

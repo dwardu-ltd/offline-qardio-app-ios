@@ -3,6 +3,7 @@ import SwiftUI
 struct BloodPressureView : View {
     @ObservedObject var bluetoothController: BluetoothController
     @ObservedObject var healthKitController: HealthKitController
+    @ObservedObject var averageBloodPressureCoordinator: AverageBloodPressureCoordinator = AverageBloodPressureCoordinator.shared
     @AppStorage(Settings.saveToHealthKit) var saveToHealthKit: Bool = false
     @State var presentSingleBloodPressureReading = false
     @State var presentAverageBloodPressureReading = false
@@ -10,7 +11,7 @@ struct BloodPressureView : View {
     
     private func onSuccessfulReading(_ bloodPressureReading: BloodPressureReading) {
         if (saveToHealthKit) {
-            healthKitController.saveBloodPressureReading(reading: bloodPressureReading)
+           _ = healthKitController.saveBloodPressureReading(reading: bloodPressureReading)
         }
     }
 
@@ -57,6 +58,7 @@ struct BloodPressureView : View {
                             Spacer()
                             
                             Button("Get Reading"){
+                                averageBloodPressureCoordinator.reset()
                                 showingReadingOptions = true
                             }.sheet(isPresented: $presentSingleBloodPressureReading) {
                                 if (saveToHealthKit) {
@@ -66,7 +68,7 @@ struct BloodPressureView : View {
                                 BloodPressureReadingInActionView()
                             }
                             .sheet(isPresented: $presentAverageBloodPressureReading) {
-                                if (saveToHealthKit) {
+                                if (saveToHealthKit && averageBloodPressureCoordinator.hasReadings) {
                                     _ = healthKitController.saveBloodPressureReading(reading: bluetoothController.bloodPressureReading)
                                 }
                                 

@@ -17,6 +17,10 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     
     let logger = Logger()
     
+    var debugMode: Bool = true
+    
+    var listOfPeripherals: [CBPeripheral] = []
+    
     @Published var isBluetoothEnabled: Bool = false
     @Published var batteryLevel: UInt8 = 0 // Default value for battery level
     @Published var connectedPeripheral: CBPeripheral?
@@ -81,11 +85,18 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
                 // Discover characteristics for Battery Service
                 peripheral.discoverCharacteristics(nil, for: service) // Discover all characteristics
             default:
-                logger.warning("Unknown service UUID: \(service.uuid)")
+//                logger.warning("Unknown service UUID: \(service.uuid)")
                 // You can handle other services here if needed
                 // peripheral.discoverCharacteristics(nil, for: service)
                 break
             }
+            
+//            if debugMode {
+//                for service in services {
+//                    logger.debug("Service UUID: \(service.uuid)")
+//                    peripheral.discoverCharacteristics(nil, for: service)
+//                }
+//            }
         }
     }
     func peripheral(
@@ -102,6 +113,7 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
         guard let data = characteristic.value else { return }
         
         // Handle the received data based on the characteristic UUID
+        
         
         switch characteristic.uuid {
         case CBUUID(string: QardioArmBluetoothDevice.bloodPressureMeasurementCharacteristicString): // Blood Pressure Measurement Characteristic UUID
@@ -168,7 +180,7 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
                         return
                     }
                     onSuccessfulReading(self.bloodPressureReading)
-                    self.bloodPressureReading.bloodPressureReadingProgress = .savedToHealthKit
+                    self.bloodPressureReading.bloodPressureReadingProgress = .completed
                     
                 }
             } else {
@@ -184,6 +196,11 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
             } else {
                 logger.debug("Battery Level data is not available.")
             }
+        case CBUUID(string: "2902"): // Battery Service UUID
+            logger.debug("Received data for Client Characteristic Configuration Descriptor: \(data)")
+            // Handle the descriptor data if needed
+            logger.debug("Descriptor UUID: \(characteristic.uuid)")
+            logger.debug("Descriptor Value: \(data.map { String(format: "%02X", $0) }.joined())")
         default:
             logger.warning("Received data for unknown characteristic: \(characteristic.uuid)")
         }
@@ -240,11 +257,26 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
             case CBUUID(string: QardioArmBluetoothDevice.batteryServiceLevelCharacteristicString): // Battery Level Characteristic UUID
                 logger.debug("Battery Level Characteristic found")
                 peripheral.setNotifyValue(true, for: characteristic) // Subscribe to notifications
+            case CBUUID(string: "2902"): // Battery Service UUID
+                logger.debug("Client Characteristic Configuration Descriptor found")
+                peripheral.setNotifyValue(true, for: characteristic) // Subscribe to notifications
             default:
+                print("Unknown characteristic UUID: \(characteristic.uuid)")
                 break
             }
         }
+        
+        
+        if debugMode {
+            logger.debug("Service UUID: \(service.uuid)")
+            for characteristic in service.characteristics ?? [] {
+                logger.debug("\(service.uuid): \(characteristic.uuid)")
+            }
+        }
+        
     }
+
+    
     func peripheral(
         _ peripheral: CBPeripheral,
         didUpdateNotificationStateFor characteristic: CBCharacteristic,
@@ -262,17 +294,17 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
     private func convertToHex(_ value: UInt16) -> String {
         return String(format: "%04X", value)
     }
-//    convert a string to bytes
+    // Convert a string to bytes
     private func stringToBytes(_ value: String) -> [UInt8]? {
         guard let hexValue = UInt16(value, radix: 16) else { return nil }
         return [UInt8(hexValue >> 8), UInt8(hexValue & 0xFF)]
     }
     
-//    convert a ushort to bytes
+    // Convert a ushort to bytes
     private func ushortToBytes(_ value: UInt16) -> [UInt8] {
         return [UInt8(value >> 8), UInt8(value & 0xFF)]
     }
-//    Convert decimal 497 to UInt8
+    // Convert decimal 497 to UInt8
     private func decimalToUInt8(_ value: UInt16) -> UInt8 {
         return UInt8(value & 0xFF)
     }
@@ -296,9 +328,19 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
         }
     }
     
+    func stopReading() {
+        if self.isDeviceConnected() {
+            logger.debug("Stopping reading from connected peripheral: \(self.connectedPeripheral?.name ?? "Unknown")")
+            connectedPeripheral?.writeValue(hexToData(QardioArmBluetoothDevice.bloodPressureFeatureStopReadingValue, bigEndian: false), for: self.characteristic!, type: .withResponse)
+            bloodPressureReading.bloodPressureReadingProgress = .notStarted
+        }
+    }
+    
     func scanForPeripherals() {
         if isBluetoothEnabled {
-            let services: [CBUUID] = [CBUUID(string: QardioArmBluetoothDevice.bloodPressureServiceString), CBUUID(string: QardioArmBluetoothDevice.batteryServiceString)] // Battery and Blood Pressure Service UUID respectively
+            listOfPeripherals = []
+            let services: [CBUUID] = [CBUUID(string: QardioArmBluetoothDevice.bloodPressureServiceString), CBUUID(string: QardioArmBluetoothDevice.batteryServiceString)]
+            // Battery and Blood Pressure Service UUID respectively
             centralManager.scanForPeripherals(withServices: services, options: nil)
         }
     }
@@ -320,12 +362,24 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
      */
     func centralManager(_ didConnect: CBCentralManager,
                         didConnect peripheral: CBPeripheral) {
-        self.connectedPeripheral = peripheral
-        self.connectedPeripheral?.delegate = self
-        logger.info("Connected to peripheral: \(peripheral.name ?? "Unknown")")
-        peripheral.delegate = self
-        peripheral.discoverServices([CBUUID(string: QardioArmBluetoothDevice.bloodPressureServiceString), CBUUID(string: QardioArmBluetoothDevice.batteryServiceString)]) // Blood Pressure Service UUID
+        listOfPeripherals.append(peripheral)
+        guard let peripheralName = peripheral.name else {
+            logger.error("Connected peripheral has no name.")
+            return
+        }
+        for peripherialInList in listOfPeripherals {
+            logger.debug("Peripheral in list: \(peripherialInList.name ?? "Unknown")")
+        }
+        if peripheralName.contains("Qardio") {
+            self.connectedPeripheral = peripheral
+            self.connectedPeripheral?.delegate = self
+            logger.info("Connected to peripheral: \(peripheral.name ?? "Unknown")")
+            peripheral.delegate = self
+            peripheral.discoverServices([CBUUID(string: QardioArmBluetoothDevice.bloodPressureServiceString), CBUUID(string: QardioArmBluetoothDevice.batteryServiceString)]) // Blood Pressure Service UUID
+        }
     }
+    
+    
     
     func centralManager(_ didFailToConnect: CBCentralManager, peripheral: CBPeripheral, error: (any Error)?) {
         if let error = error {
@@ -408,6 +462,14 @@ extension BluetoothController {
         bluetoothController.simulateConnected = true
         bluetoothController.batteryLevel = batteryLevel
         bluetoothController.bloodPressureReading = reading
+        
+        return bluetoothController
+    }
+    static func controllerWithNoSampleData(batteryLevel: UInt8) -> BluetoothController {
+        
+        let bluetoothController = BluetoothController()
+        bluetoothController.simulateConnected = true
+        bluetoothController.batteryLevel = batteryLevel
         
         return bluetoothController
     }

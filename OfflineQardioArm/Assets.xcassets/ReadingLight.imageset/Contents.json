@@ -1,12 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "GetReading.jpeg",
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
-      "filename" : "GetReadingDark.png",
+      "filename" : "Simulator Screenshot - iPhone 17 Pro - 2025-10-05 at 11.29.52.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -17,7 +12,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "GetReadingLight.png",
+      "filename" : "Simulator Screenshot - iPhone 17 Pro - 2025-10-05 at 11.26.41.png",
       "idiom" : "universal",
       "scale" : "1x"
     },

@@ -12,8 +12,9 @@ struct QardioArmBluetoothDevice {
     static let batteryServiceString: String = "180F"
     static let batteryServiceLevelCharacteristicId: CBUUID = CBUUID(string: QardioArmBluetoothDevice.batteryServiceLevelCharacteristicString)
     static let batteryServiceLevelCharacteristicString: String = "2A19"
+    
     static let bloodPressureServiceId: UInt16 = 0x1810
-    static let bloodPressureServiceName: String = "Bloody Pressure"       // Looks like Qardio named this service "Bloody Pressure" instead of "Blood Pressure" from the BLE spec
+    static let bloodPressureServiceName: String = "Bloody Pressure" // Looks like Qardio named this service "Bloody Pressure" instead of "Blood Pressure" from the BLE spec
     static let bloodPressureServiceString: String = "1810"
     static let bloodPressureMeasurementCharacteristicId: UInt16 = 0x2A35
     static let bloodPressureMeasurementCharacteristicString: String = "2A35"
