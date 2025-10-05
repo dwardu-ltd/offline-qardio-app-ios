@@ -6,11 +6,6 @@
       "scale" : "1x"
     },
     {
-      "filename" : "GetReadingDark.png",
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
       "appearances" : [
         {
           "appearance" : "luminosity",
