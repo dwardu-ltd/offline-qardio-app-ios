@@ -32,7 +32,7 @@ struct OfflineQardioArmApp: App {
             let bloodPressureReading = BloodPressureReading(systolic: 122, diastolic: 83, atrialPressure: 99, pulseRate: 66, bloodPressureReadingProgress: .savedToHealthKit)
             let bluetoothControllerFakeData: BluetoothController = BluetoothController.controllerWithSampleData(reading: bloodPressureReading, batteryLevel: 78)
             let bluetoothControllerNoData: BluetoothController = BluetoothController.controllerWithNoSampleData(batteryLevel: 78)
-            ContentView(bluetoothController: bluetoothControllerNoData, healthKitController: healthKitController)
+            ContentView(bluetoothController: bluetoothControllerFakeData, healthKitController: healthKitController)
             #else
             ContentView(bluetoothController: bluetoothController, healthKitController: healthKitController)
             #endif

@@ -362,6 +362,7 @@ class BluetoothController: NSObject, ObservableObject, CBCentralManagerDelegate,
      */
     func centralManager(_ didConnect: CBCentralManager,
                         didConnect peripheral: CBPeripheral) {
+        
         listOfPeripherals.append(peripheral)
         guard let peripheralName = peripheral.name else {
             logger.error("Connected peripheral has no name.")
